@@ -115,9 +115,16 @@ def collect_human_trajectory(
         )
 
         # If action is none, then this a reset so we should break
+        # if input_action is None:
+        #     discard_traj = True
+        #     break
+
+        # If action is none, then we want to reset the environment
         if input_action is None:
-            discard_traj = True
-            break
+            print("Resetting environment")
+            env.reset()
+            device.start_control()
+            continue
 
         if is_empty_input_spacemouse(input_action):
             if not nonzero_ac_seen:
