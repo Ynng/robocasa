@@ -72,6 +72,7 @@ if __name__ == "__main__":
         )
 
     env = robosuite.make(**env_kwargs)
+    print("Env initialized", type(env))
 
     f = h5py.File(args.dataset, "r")
 
@@ -121,10 +122,16 @@ if __name__ == "__main__":
 
         for _ in range(100):
             print("Restarting simulation")
-            for i in range(60):
+            for i in range(traj_len):
                 start = time.time()
 
                 env.step([0] * env.action_dim)
+                sponge = env.objects["obj2"]
+                print("Sponge(obj2) info", env.objects["obj2"])
+                print(
+                    "Sponge pos",
+                    np.array(env.sim.data.body_xpos[env.obj_body_id[sponge.name]]),
+                )
                 # reset_to(env, {"states": states[i]})
 
                 # on-screen render
