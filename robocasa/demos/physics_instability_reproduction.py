@@ -119,40 +119,41 @@ if __name__ == "__main__":
         reset_to(env, initial_state)
 
         traj_len = states.shape[0]
+        obejcts_last_pos = {}
+        for i in range(traj_len):
+            start = time.time()
 
-        for _ in range(100):
-            print("Restarting simulation")
-            for i in range(traj_len):
-                start = time.time()
+            env.step([0] * env.action_dim)
+            for obj_name, obj in env.objects.items():
+                obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
+                if obj_name in obejcts_last_pos:
+                    obj_dist = np.linalg.norm(obj_pos - obejcts_last_pos[obj_name])
+                    obj_vel = obj_dist / (1 / 60)
+                    if obj_vel > 3:
+                        print(
+                            f"{obj_name} is flying off",
+                            obj_vel,
+                            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                        )
+                obejcts_last_pos[obj_name] = obj_pos
+            # reset_to(env, {"states": states[i]})
 
-                env.step([0] * env.action_dim)
-                sponge = env.objects["obj2"]
-                print("Sponge(obj2) info", env.objects["obj2"])
-                print(
-                    "Sponge pos",
-                    np.array(env.sim.data.body_xpos[env.obj_body_id[sponge.name]]),
-                )
-                # reset_to(env, {"states": states[i]})
+            # on-screen render
+            if env.viewer is None:
+                env.initialize_renderer()
 
-                # on-screen render
-                if env.viewer is None:
-                    env.initialize_renderer()
+            # so that mujoco viewer renders
+            env.viewer.update()
 
-                # so that mujoco viewer renders
-                env.viewer.update()
+            max_fr = 60
+            elapsed = time.time() - start
+            diff = 1 / max_fr - elapsed
+            if diff > 0:
+                time.sleep(diff)
 
-                max_fr = 60
-                elapsed = time.time() - start
-                diff = 1 / max_fr - elapsed
-                if diff > 0:
-                    time.sleep(diff)
-
-            print("Resetting environment")
-            env.reset()
-            reset_to(env, initial_state)
-
-        env.viewer.close()
-        env.viewer = None
+        print("Resetting environment")
+        env.reset()
+        reset_to(env, initial_state)
 
     f.close()
 
