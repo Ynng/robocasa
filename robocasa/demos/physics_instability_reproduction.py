@@ -134,7 +134,8 @@ if __name__ == "__main__":
                         obj_dist = np.linalg.norm(obj_pos - obejcts_last_pos[obj_name])
 
                         if obj_dist > 0.01:
-                            print(f"{obj_name} is moving when it shouldn't be!")
+                            current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                            print(f"{obj_name} is moving when it shouldn't be during reset {i} step {j} at time {current_time}. Current position: {obj_pos}")
                     obejcts_last_pos[obj_name] = obj_pos
 
                 # on-screen render
