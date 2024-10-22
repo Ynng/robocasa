@@ -110,7 +110,6 @@ if __name__ == "__main__":
                 print(colored(f"Instruction: {lang}", "green"))
             print(colored("Spawning environment...", "yellow"))
         
-        env.reset()
         reset_to(env, initial_state)
 
         traj_len = states.shape[0]
