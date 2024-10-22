@@ -132,6 +132,7 @@ def main():
         env: kitchen.Kitchen = robosuite.make(**config)
         print("env type is", type(env))
         for _ in range(100):
+            # env.reset() resets the sim and re-randomizes the object placements
             env.reset()
             initial_pos = get_object_positions(env)
             print("initial_pos", initial_pos)
