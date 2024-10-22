@@ -83,77 +83,71 @@ if __name__ == "__main__":
     inds = np.argsort([int(elem[5:]) for elem in demos])
     demos = [demos[i] for i in inds]
 
-    # maybe reduce the number of demonstrations to playback
-    if args.n is not None:
-        random.shuffle(demos)
-        demos = demos[: args.n]
+    # reset each environment 100 times
+    for i in range(100):
+        for ind in range(len(demos)):
+            ep = demos[ind]
+            print(colored("\nPlaying back episode: {}".format(ep), "yellow"))
 
-    for ind in range(len(demos)):
-        ep = demos[ind]
-        print(colored("\nPlaying back episode: {}".format(ep), "yellow"))
+            # prepare initial state to reload from
+            states = f["data/{}/states".format(ep)][()]
+            initial_state = dict(states=states[0])
+            initial_state["model"] = f["data/{}".format(ep)].attrs["model_file"]
+            initial_state["ep_meta"] = f["data/{}".format(ep)].attrs.get("ep_meta", None)
 
-        # prepare initial state to reload from
-        states = f["data/{}/states".format(ep)][()]
-        initial_state = dict(states=states[0])
-        initial_state["model"] = f["data/{}".format(ep)].attrs["model_file"]
-        initial_state["ep_meta"] = f["data/{}".format(ep)].attrs.get("ep_meta", None)
+            if args.extend_states:
+                states = np.concatenate((states, [states[-1]] * 50))
 
-        if args.extend_states:
-            states = np.concatenate((states, [states[-1]] * 50))
+            video_count = 0
 
-        video_count = 0
+            if args.verbose:
+                ep_meta = json.loads(initial_state["ep_meta"])
+                lang = ep_meta.get("lang", None)
+                if lang is not None:
+                    print(colored(f"Instruction: {lang}", "green"))
+                print(colored("Spawning environment...", "yellow"))
+            
+            reset_to(env, initial_state)
 
-        if args.verbose:
-            ep_meta = json.loads(initial_state["ep_meta"])
-            lang = ep_meta.get("lang", None)
-            if lang is not None:
-                print(colored(f"Instruction: {lang}", "green"))
-            print(colored("Spawning environment...", "yellow"))
-        
-        reset_to(env, initial_state)
+            traj_len = states.shape[0]
 
-        traj_len = states.shape[0]
-
-        # grab all objects initial position
-        obejcts_last_pos = {}
-        for obj_name, obj in env.objects.items():
-            obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
-            obejcts_last_pos[obj_name] = obj_pos
-            print(f"{obj_name} initial position: {obj_pos}")
-        
-        # reset each environment 100 times
-        for i in range(100):
+            # grab all objects initial position
+            obejcts_last_pos = {}
+            for obj_name, obj in env.objects.items():
+                obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
+                obejcts_last_pos[obj_name] = obj_pos
+                print(f"{obj_name} initial position: {obj_pos}")
+            
             # step 100 times to see if physics bugs occur
-            for j in range(100):
-                start = time.time()
+            for j in range(10):
+                for k in range(60):
+                    start = time.time()
 
-                env.step([0] * env.action_dim)
-                for obj_name, obj in env.objects.items():
-                    obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
-                    if obj_name in obejcts_last_pos:
-                        obj_dist = np.linalg.norm(obj_pos - obejcts_last_pos[obj_name])
+                    env.step([0] * env.action_dim)
+                    for obj_name, obj in env.objects.items():
+                        obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
+                        if obj_name in obejcts_last_pos:
+                            obj_dist = np.linalg.norm(obj_pos - obejcts_last_pos[obj_name])
 
-                        if obj_dist > 0.01:
-                            current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                            print(f"{obj_name} is moving when it shouldn't be during reset {i} step {j} at time {current_time}. Current position: {obj_pos}")
-                    obejcts_last_pos[obj_name] = obj_pos
+                            if obj_dist > 0.01:
+                                current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                                print(f"{obj_name} is moving when it shouldn't be during reset {j} step {k} in demo {ep} at time {current_time}. Current position: {obj_pos}")
+                        obejcts_last_pos[obj_name] = obj_pos
 
-                # on-screen render
-                if env.viewer is None:
-                    env.initialize_renderer()
+                    # on-screen render
+                    if env.viewer is None:
+                        env.initialize_renderer()
 
-                # so that mujoco viewer renders
-                env.viewer.update()
+                    # so that mujoco viewer renders
+                    env.viewer.update()
 
-                max_fr = 60
-                elapsed = time.time() - start
-                diff = 1 / max_fr - elapsed
-                if diff > 0:
-                    time.sleep(diff)
+                    max_fr = 60
+                    elapsed = time.time() - start
+                    diff = 1 / max_fr - elapsed
+                    if diff > 0:
+                        time.sleep(diff)
 
-        print("Resetting environment")
-        env.reset()
-        reset_to(env, initial_state)
+                reset_to(env, initial_state)
 
     f.close()
 

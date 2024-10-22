@@ -235,6 +235,7 @@ def reset_to(env, state):
         # this reset is necessary.
         # while the call to env.reset_from_xml_string does call reset,
         # that is only a "soft" reset that doesn't actually reload the model.
+        print("resetting environment")
         env.reset()
         robosuite_version_id = int(robosuite.__version__.split(".")[1])
         if robosuite_version_id <= 3:
