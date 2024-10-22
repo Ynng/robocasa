@@ -8,6 +8,7 @@ import numpy as np
 import robosuite
 from robosuite import load_controller_config
 
+import robocasa.environments.kitchen.kitchen as kitchen
 MOVEMENT_THRESHOLD = 0.1
 
 def get_object_positions(env) -> Dict[str, np.ndarray]:
@@ -128,7 +129,8 @@ def main():
         config["layout_ids"] = layout
         config["style_ids"] = style
         config["seed"] = random.randint(0, 2**32 - 1)
-        env = robosuite.make(**config)
+        env: kitchen.Kitchen = robosuite.make(**config)
+        print("env type is", type(env))
         for _ in range(100):
             env.reset()
             initial_pos = get_object_positions(env)
