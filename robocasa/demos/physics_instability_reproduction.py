@@ -88,7 +88,6 @@ if __name__ == "__main__":
         random.shuffle(demos)
         demos = demos[: args.n]
 
-    # maybe dump video
     for ind in range(len(demos)):
         ep = demos[ind]
         print(colored("\nPlaying back episode: {}".format(ep), "yellow"))
@@ -104,52 +103,52 @@ if __name__ == "__main__":
 
         video_count = 0
 
-        # load the initial state
-        ## this reset call doesn't seem necessary.
-        ## seems ok to remove but haven't fully tested it.
-        ## removing for now
-        # env.reset()
-
         if args.verbose:
             ep_meta = json.loads(initial_state["ep_meta"])
             lang = ep_meta.get("lang", None)
             if lang is not None:
                 print(colored(f"Instruction: {lang}", "green"))
             print(colored("Spawning environment...", "yellow"))
+        
         reset_to(env, initial_state)
 
         traj_len = states.shape[0]
+
+        # grab all objects initial position
         obejcts_last_pos = {}
-        for i in range(traj_len):
-            start = time.time()
+        for obj_name, obj in env.objects.items():
+            obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
+            obejcts_last_pos[obj_name] = obj_pos
+            print(f"{obj_name} initial position: {obj_pos}")
+        
+        # reset each environment 100 times
+        for i in range(100):
+            # step 100 times to see if physics bugs occur
+            for j in range(100):
+                start = time.time()
 
-            env.step([0] * env.action_dim)
-            for obj_name, obj in env.objects.items():
-                obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
-                if obj_name in obejcts_last_pos:
-                    obj_dist = np.linalg.norm(obj_pos - obejcts_last_pos[obj_name])
-                    obj_vel = obj_dist / (1 / 60)
-                    if obj_vel > 3:
-                        print(
-                            f"{obj_name} is flying off",
-                            obj_vel,
-                            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                        )
-                obejcts_last_pos[obj_name] = obj_pos
-            # reset_to(env, {"states": states[i]})
+                env.step([0] * env.action_dim)
+                for obj_name, obj in env.objects.items():
+                    obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
+                    if obj_name in obejcts_last_pos:
+                        obj_dist = np.linalg.norm(obj_pos - obejcts_last_pos[obj_name])
 
-            # on-screen render
-            if env.viewer is None:
-                env.initialize_renderer()
+                        if obj_dist > 0.01:
+                            print(f"{obj_name} is moving when it shouldn't be!")
+                    obejcts_last_pos[obj_name] = obj_pos
 
-            # so that mujoco viewer renders
-            env.viewer.update()
+                # on-screen render
+                if env.viewer is None:
+                    env.initialize_renderer()
 
-            max_fr = 60
-            elapsed = time.time() - start
-            diff = 1 / max_fr - elapsed
-            if diff > 0:
-                time.sleep(diff)
+                # so that mujoco viewer renders
+                env.viewer.update()
+
+                max_fr = 60
+                elapsed = time.time() - start
+                diff = 1 / max_fr - elapsed
+                if diff > 0:
+                    time.sleep(diff)
 
         print("Resetting environment")
         env.reset()
