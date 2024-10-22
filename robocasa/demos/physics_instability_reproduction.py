@@ -44,15 +44,12 @@ def main():
     for _ in range(500):
         env.reset()
         last_positions = get_object_positions(env)
+        print("last_positions", last_positions)
         for _ in range(60):
             start_time = time.time()
 
             env.step([0] * env.action_dim)
             check_object_movement(env, last_positions)
-
-            if env.viewer is None:
-                env.initialize_renderer()
-            env.viewer.update()
 
             elapsed_time = time.time() - start_time
             sleep_time = max(1 / 60 - elapsed_time, 0)
