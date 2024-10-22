@@ -42,8 +42,8 @@ def main():
     env = robosuite.make(**config)
 
     for _ in range(500):
+        env.reset()
         last_positions = get_object_positions(env)
-
         for _ in range(60):
             start_time = time.time()
 
@@ -59,7 +59,7 @@ def main():
             time.sleep(sleep_time)
 
         env.close()
-        env.reset()
+    env.close()
 
 if __name__ == "__main__":
     main()
