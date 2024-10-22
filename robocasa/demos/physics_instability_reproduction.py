@@ -1,18 +1,36 @@
 import time
+from typing import Dict
+
+import numpy as np
 import robosuite
 from robosuite import load_controller_config
-import numpy as np
 
 TASK = "PreSoakPan"
-MAX_FR = 60
+MOVEMENT_THRESHOLD = 0.1
 
-if __name__ == "__main__":
+def get_object_positions(env) -> Dict[str, np.ndarray]:
+    return {
+        obj_name: np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
+        for obj_name, obj in env.objects.items()
+    }
+
+def check_object_movement(env, last_positions: Dict[str, np.ndarray]) -> None:
+    current_positions = get_object_positions(env)
+    for obj_name, current_pos in current_positions.items():
+        if obj_name in last_positions:
+            distance = np.linalg.norm(current_pos - last_positions[obj_name])
+            if distance > MOVEMENT_THRESHOLD:
+                current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                print(f"{obj_name} moved unexpectedly during reset. Time: {current_time}")
+                print(f"Current position: {current_pos}")
+                print(f"Pausing for 10 seconds for observation")
+                time.sleep(10)
+
+def main():
     config = {
         "env_name": TASK,
         "robots": "PandaMobile",
         "controller_configs": load_controller_config(default_controller="OSC_POSE"),
-        "layout_ids": None,
-        "style_ids": None,
         "has_renderer": True,
         "has_offscreen_renderer": False,
         "render_camera": "robot0_frontview",
@@ -21,42 +39,27 @@ if __name__ == "__main__":
         "use_camera_obs": False,
     }
 
-    # reset each environment 100 times
     env = robosuite.make(**config)
-    for i in range(100):
-        for j in range(10):
-            # grab all objects initial position
-            obejcts_last_pos = {}
-            for obj_name, obj in env.objects.items():
-                obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
-                obejcts_last_pos[obj_name] = obj_pos
-                print(f"{obj_name} initial position: {obj_pos}")
 
-            for k in range(60):
-                start = time.time()
+    for _ in range(500):
+        last_positions = get_object_positions(env)
 
-                env.step([0] * env.action_dim)
-                for obj_name, obj in env.objects.items():
-                    obj_pos = np.array(env.sim.data.body_xpos[env.obj_body_id[obj.name]])
-                    if obj_name in obejcts_last_pos:
-                        obj_dist = np.linalg.norm(obj_pos - obejcts_last_pos[obj_name])
+        for _ in range(60):
+            start_time = time.time()
 
-                        if obj_dist > 0.01:
-                            current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                            print(f"{obj_name} is moving when it shouldn't be during reset {j} step {k} at time {current_time}. Current position: {obj_pos}")
-                    obejcts_last_pos[obj_name] = obj_pos
+            env.step([0] * env.action_dim)
+            check_object_movement(env, last_positions)
 
-                # on-screen render
-                if env.viewer is None:
-                    env.initialize_renderer()
+            if env.viewer is None:
+                env.initialize_renderer()
+            env.viewer.update()
 
-                # so that mujoco viewer renders
-                env.viewer.update()
+            elapsed_time = time.time() - start_time
+            sleep_time = max(1 / 60 - elapsed_time, 0)
+            time.sleep(sleep_time)
 
-                elapsed = time.time() - start
-                diff = 1 / MAX_FR - elapsed
-                if diff > 0:
-                    time.sleep(diff)
+        env.close()
+        env.reset()
 
-            env.close()
-            env.reset()
+if __name__ == "__main__":
+    main()
