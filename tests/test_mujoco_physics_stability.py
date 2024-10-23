@@ -1,40 +1,47 @@
+import random
 import time
 from typing import Dict
 import unittest
 
 import numpy as np
+import robocasa
 import robosuite
 from robosuite import load_controller_config
 from termcolor import colored
 
-import robocasa
 
 MOVEMENT_THRESHOLD = 0.1
 DEFAULT_SEED = 3
 
 # TODO: get the test to work with all environments
 # TODO: reduce the amount of time it takes to run
-# Currently this test takes 10*12*100*5 seconds = 16 hours to run per Environment
+# Currently this test takes 10*100*5 seconds = 1.4 hours to run per Environment
 
 
 class TestMujocoPhysicsStability(unittest.TestCase):
-    skip_envs = set(
-        [
-            "AfterwashSorting",
-            "BowlAndCup",
-            "ClearingCleaningReceptacles",
-            "DrinkwareConsolidation",
-            "PnP",
-            "SetBowlsForSoup",
-            "WineServingPrep",
-        ]
-    )
+    verbose = False
+    test_envs = [
+        # "PnPCounterToCab",
+        # "PnPCounterToSink",
+        # "PnPMicrowaveToCounter",
+        # "PnPStoveToCounter",
+        # "OpenSingleDoor",
+        # "CloseDrawer",
+        # "TurnOnMicrowave",
+        # "TurnOnSinkFaucet",
+        # "TurnOnStove",
+        # "ArrangeVegetables",
+        # "MicrowaveThawing",
+        # "RestockPantry",
+        "PreSoakPan",
+        # "PrepareCoffee",
+    ]
 
     def test_mujoco_physics_stability(self):
         """
         Tests that the physics of the mujoco simulator are stable.
         This test does the following:
-        - Runs every task with every layout and style 100 times
+        - Runs every task with every layout and a random style 100 times
         - For each run, simulates 60 steps
         - Checks that the objects do not move more than MOVEMENT_THRESHOLD
         This ensures that the physics simulation remains consistent and stable
@@ -68,12 +75,9 @@ class TestMujocoPhysicsStability(unittest.TestCase):
                         )
                         raise AssertionError(error_message)
 
-        envs = sorted(robocasa.ALL_KITCHEN_ENVIRONMENTS)
+        # envs = sorted(robocasa.ALL_KITCHEN_ENVIRONMENTS)
 
-        for _, env in enumerate(envs):
-            if env in self.skip_envs:
-                continue
-            env = "PreSoakPan"
+        for _, env in enumerate(self.test_envs):
             print(colored(f"Testing {env} environment...", "green"))
 
             config = {
@@ -90,32 +94,45 @@ class TestMujocoPhysicsStability(unittest.TestCase):
                 "use_camera_obs": False,
                 "seed": DEFAULT_SEED,
                 "randomize_cameras": False,
+                "obj_registries": ("objaverse", "aigen"),
             }
 
             # Try every layout & style configuration
             for layout in range(10):
-                for style in range(12):
-                    config["layout_ids"] = layout
-                    config["style_ids"] = style
-                    env: robocasa.Kitchen = robosuite.make(**config)
-                    for _ in range(100):  # Try 100 times
-                        # env.reset() resets the sim and randomizes object placements
-                        env.reset()
-                        initial_pos = get_object_positions(env)
+                config["layout_ids"] = layout
+                config["style_ids"] = random.randint(0, 11)
+                env: robocasa.Kitchen = robosuite.make(**config)
+                for _ in range(100):  # Try 100 times
+                    # env.reset() resets the sim and randomizes object placements
+                    env.reset()
+                    initial_pos = get_object_positions(env)
+                    if self.verbose:
+                        print(
+                            f"initial_pos for layout {layout} style {config['style_ids']}: {initial_pos}"
+                        )
 
-                        for _ in range(60):  # Step 60 times
-                            start_time = time.time()
+                    for _ in range(60):  # Step 60 times
+                        start_time = time.time()
 
-                            env.step([0] * env.action_dim)
-                            check_object_movement(env, initial_pos)
+                        env.step([0] * env.action_dim)
+                        check_object_movement(env, initial_pos)
 
-                            elapsed_time = time.time() - start_time
-                            sleep_time = max(1 / 60 - elapsed_time, 0)
-                            time.sleep(sleep_time)
+                        elapsed_time = time.time() - start_time
+                        sleep_time = max(1 / 60 - elapsed_time, 0)
+                        time.sleep(sleep_time)
 
-                        env.close()
+                    env.close()
         env.close()
 
 
 if __name__ == "__main__":
-    unittest.main()
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose output"
+    )
+    args = parser.parse_args()
+
+    TestMujocoPhysicsStability.verbose = args.verbose
+    unittest.main(argv=["first-arg-is-ignored"], exit=False)
